@@ -23,7 +23,7 @@ import decimal
 import sys
 
 from django.conf import settings
-from django.db import models
+from django.db import models, IntegrityError
 from django.utils import dateformat, six, timezone
 from django.utils.encoding import python_2_unicode_compatible, smart_text
 from model_utils.models import TimeStampedModel
@@ -210,7 +210,7 @@ class StripeObject(TimeStampedModel):
         pass
 
     @classmethod
-    def _create_from_stripe_object(cls, data, save=True):
+    def _create_from_stripe_object(cls, data, save=True, force_insert=True):
         """
         Instantiates a model instance using the provided data object received
         from Stripe, and saves it to the database if specified.
@@ -226,7 +226,7 @@ class StripeObject(TimeStampedModel):
         instance._attach_objects_hook(cls, data)
 
         if save:
-            instance.save()
+            instance.save(force_insert=force_insert)
 
         instance._attach_objects_post_save_hook(cls, data)
 
@@ -255,7 +255,10 @@ class StripeObject(TimeStampedModel):
                 cls_instance = cls(stripe_id=stripe_id)
                 data = cls_instance.api_retrieve()
 
-        return cls._create_from_stripe_object(data, save=save), True
+        try:
+            return cls._create_from_stripe_object(data, save=save, force_insert=True), True
+        except IntegrityError:
+            return cls.stripe_objects.get(stripe_id=stripe_id), False
 
     @classmethod
     def _stripe_object_to_customer(cls, target_cls, data):
