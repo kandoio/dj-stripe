@@ -127,6 +127,39 @@ On the subscriber's customer object, use the charge method to generate a Stripe 
 
 Source code for the Customer.charge method is at https://github.com/kavdev/dj-stripe/blob/master/djstripe/models.py
 
+Handling the end of a trial
+---------------------------
+
+If a customer is subscribed to a plan which includes a trial, stripe will send the following events
+when the trial ends:
+
+* Three days before a trial ends, a 'customer.subscription.trial_will_end' event will be generated
+* When the trial ends a 'customer.subscription.updated' event will be generated with
+  previous_attributes of 'status': 'trialing'.
+
+Example signals handlers
+
+.. code-block:: python
+
+    from djstripe.signals import stripe_receiver
+
+    @stripe_receiver('customer.subscription.trial_will_end')
+    def alert_customer_that_trial_will_end(event, **_):
+        // Alert the customer that their trial will end in three days
+        pass
+
+    @stripe_receiver('customer.subscription.updated')
+    def check_end_of_trial(event, **_):
+        previous_attributes = event.webhook_message.get('previous_attributes')
+        if previous_attributes and previous_attributes.get('status') == 'trialling':
+            // Handle the end of trial
+            pass
+
+References:
+ * https://stripe.com/docs/api#event_types-customer.subscription.trial_will_end
+ * http://stackoverflow.com/questions/26984476/stripe-webhook-for-when-trial-ends#27007075
+ * https://github.com/kavdev/dj-stripe/issues/356#issuecomment-252496686
+
 REST API
 --------
 
